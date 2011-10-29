@@ -47,7 +47,11 @@ void State::makeMove(const Location &loc, int direction)
 };
 
 unsigned long State::manhattanDistance(const Location &loc1, const Location &loc2) const {
-    return abs(loc1.row - loc2.row) + abs(loc1.col - loc2.col);
+    int d1 = abs(loc1.row-loc2.row),
+        d2 = abs(loc1.col-loc2.col),
+        dr = min(d1, rows-d1),
+        dc = min(d2, cols-d2);
+    return dr + dc;
 }
 
 //returns the euclidean distance between two locations with the edges wrapped
@@ -76,7 +80,7 @@ int State::getDirection(const Location& start, const Location& end) const {
         }
     }
 
-    cout << "Invalid move from " << start << " to " << end << endl;
+    cerr << "Invalid move from " << start << " to " << end << endl;
     return -1;
 }
 
@@ -124,24 +128,24 @@ void State::updateVisionInformation()
 }
 
 float State::LeastCostEstimate(void* stateStart, void* stateEnd) {
-    const Location* start = (const Location*) stateStart;
-    const Location* end = (const Location*) stateEnd;
+    const Location start = Location(stateStart);
+    const Location end = Location(stateEnd);
 
-    return manhattanDistance(*start, *end);
+    return manhattanDistance(start, end);
 }
 
 void State::AdjacentCost(void* state, std::vector< micropather::StateCost > *adjacent) {
-    const Location* start = (const Location*) state;
+    const Location start = Location(state);
 
     for(int d=0; d<TDIRECTIONS; d++)
     {
-        const Location* next = new Location(getLocation(*start, d));
+        const Location next = getLocation(start, d);
 
-        const Square nextSquare = grid[next->row][next->col];
+        const Square nextSquare = grid[next.row][next.col];
         if (!nextSquare.isWater && !nextSquare.isHill && nextSquare.ant == -1) {
             micropather::StateCost cost;
             cost.cost = 1;
-            cost.state = (void*) next;
+            cost.state = next.toState();
 
             adjacent->push_back(cost);
         }
@@ -149,7 +153,7 @@ void State::AdjacentCost(void* state, std::vector< micropather::StateCost > *adj
 }
 
 void State::PrintStateInfo(void* state) {
-    const Location* loc = (const Location*) state;
+    const Location loc = Location(state);
 
     cout << loc;
 }

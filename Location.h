@@ -19,8 +19,18 @@ struct Location
         col = c;
     };
 
+    Location(void* state) {
+        size_t xy = reinterpret_cast<size_t>(state);
+        row = (int) (xy >> 16) & 0xFFFF;
+        col = (int) (xy & 0xFFFF);
+    }
+
     bool operator==(const Location& other) const {
         return row == other.row && col == other.col;
+    }
+
+    void* toState() const {
+        return (void*) ((row << 16) | col);
     }
 };
 

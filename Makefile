@@ -6,7 +6,7 @@ OBJECTS=$(SOURCES:.cc=.o)
 EXECUTABLE=MyBot
 
 #Uncomment the following to enable debugging
-CFLAGS+=-g -DDEBUG
+CFLAGS+=-ggdb -DDEBUG
 
 all: $(OBJECTS) $(EXECUTABLE)
 

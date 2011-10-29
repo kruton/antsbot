@@ -30,32 +30,60 @@ void Bot::makeMoves() {
     state.bug << "turn " << state.turn << ":" << endl;
     state.bug << state << endl;
 
-    for (int food = 0; food < (int) state.food.size(); food++) {
+    for (int food = 0; food < (int) state.food.size() && (int) state.myAnts.size() > 0; food++) {
         const Location foodLoc = state.food[food];
 
-        const Location* closestAnt = NULL;
+        vector<void*>* closestPath = NULL;
         unsigned long closestDistance = 0UL;
 
         for (int ant = 0; ant < (int) state.myAnts.size(); ant++) {
             const Location antLoc = state.myAnts[ant];
 
             const unsigned long antDistance = state.manhattanDistance(foodLoc, antLoc);
-            if (closestAnt == NULL || antDistance < closestDistance) {
-                closestAnt = &antLoc;
-                closestDistance = antDistance;
+            if (antDistance == 0) {
+                break;
             }
+
+            if (closestPath == NULL || antDistance < closestDistance) {
+                micropather::MicroPather pather(&state);
+                std::vector<void*>* path = new vector<void*>();
+                float totalCost;
+
+                int result = pather.Solve(antLoc.toState(), foodLoc.toState(),
+                        path, &totalCost);
+                if (result != micropather::MicroPather::NO_SOLUTION) {
+                    closestDistance = totalCost;
+                    if (closestPath != NULL) {
+//                        delete closestPath;
+                    }
+                    closestPath = path;
+                } else {
+//                    delete path;
+                }
+            }
+
         }
 
-        if (closestAnt != NULL) {
-            micropather::MicroPather pather(&state);
-            std::vector<void*> path;
-            float totalCost;
+        if (closestPath != NULL) {
+            const Location ant = Location(closestPath->at(0));
+            const Location next = Location(closestPath->at(1));
 
-            int result = pather.Solve((void*) closestAnt, (void*) &foodLoc, &path, &totalCost);
-            const Location* next = (const Location*) path.front();
-            state.makeMove(*closestAnt, state.getDirection(*closestAnt, *next));
-            vector<Location>::iterator it = find(state.myAnts.begin(), state.myAnts.end(), *closestAnt);
-            state.myAnts.erase(it);
+            int direction = state.getDirection(ant, next);
+            if (direction != -1) {
+                state.makeMove(ant, state.getDirection(ant, next));
+                vector<Location>::iterator it = find(state.myAnts.begin(),
+                        state.myAnts.end(), ant);
+                state.myAnts.erase(it);
+            } else {
+                cerr << "wtf path from " << ant << " to " << foodLoc << ": ";
+                vector<void*>::iterator it = (*closestPath).begin();
+                while (it != (*closestPath).end()) {
+                    cerr << Location(*it) << ' ';
+                    it++;
+                }
+                cerr << endl;
+            }
+//                delete closestPath;
         }
     }
 
