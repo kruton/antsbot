@@ -36,7 +36,7 @@
     struct Timer
     {
         timeval timer;
-        double startTime, currentTime;
+        uint64_t startTime, currentTime;
 
         Timer()
         {
@@ -47,15 +47,15 @@
         void start()
         {
             gettimeofday(&timer, NULL);
-            startTime = timer.tv_sec+(timer.tv_usec/1000000.0);
+            startTime = timer.tv_sec * 1000 + timer.tv_usec / 1000;
         };
 
         //returns how long it has been since the timer was last started in milliseconds
-        double getTime()
+        long getTime()
         {
             gettimeofday(&timer, NULL);
-            currentTime = timer.tv_sec+(timer.tv_usec/1000000.0);
-            return (currentTime-startTime)*1000.0;
+            currentTime = timer.tv_sec * 1000 + timer.tv_usec / 1000;
+            return (currentTime-startTime)/1000;
         };
     };
 #endif

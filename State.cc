@@ -46,8 +46,12 @@ void State::makeMove(const Location &loc, int direction)
     grid[loc.row][loc.col].ant = -1;
 };
 
+unsigned long State::manhattanDistance(const Location &loc1, const Location &loc2) const {
+    return abs(loc1.row - loc2.row) + abs(loc1.col - loc2.col);
+}
+
 //returns the euclidean distance between two locations with the edges wrapped
-double State::distance(const Location &loc1, const Location &loc2)
+double State::distance(const Location &loc1, const Location &loc2) const
 {
     int d1 = abs(loc1.row-loc2.row),
         d2 = abs(loc1.col-loc2.col),
@@ -57,11 +61,24 @@ double State::distance(const Location &loc1, const Location &loc2)
 };
 
 //returns the new location from moving in a given direction with the edges wrapped
-Location State::getLocation(const Location &loc, int direction)
+Location State::getLocation(const Location &loc, int direction) const
 {
     return Location( (loc.row + DIRECTIONS[direction][0] + rows) % rows,
                      (loc.col + DIRECTIONS[direction][1] + cols) % cols );
 };
+
+int State::getDirection(const Location& start, const Location& end) const {
+    for (int direction = 0; direction < TDIRECTIONS; direction++) {
+        const int row = (start.row + DIRECTIONS[direction][0] + rows) % rows;
+        const int col = (start.col + DIRECTIONS[direction][1] + cols) % cols;
+        if (end.row == row && end.col == col) {
+            return direction;
+        }
+    }
+
+    cout << "Invalid move from " << start << " to " << end << endl;
+    return -1;
+}
 
 /*
     This function will update update the lastSeen value for any squares currently
@@ -104,8 +121,38 @@ void State::updateVisionInformation()
             }
         }
     }
-};
+}
 
+float State::LeastCostEstimate(void* stateStart, void* stateEnd) {
+    const Location* start = (const Location*) stateStart;
+    const Location* end = (const Location*) stateEnd;
+
+    return manhattanDistance(*start, *end);
+}
+
+void State::AdjacentCost(void* state, std::vector< micropather::StateCost > *adjacent) {
+    const Location* start = (const Location*) state;
+
+    for(int d=0; d<TDIRECTIONS; d++)
+    {
+        const Location* next = new Location(getLocation(*start, d));
+
+        const Square nextSquare = grid[next->row][next->col];
+        if (!nextSquare.isWater && !nextSquare.isHill && nextSquare.ant == -1) {
+            micropather::StateCost cost;
+            cost.cost = 1;
+            cost.state = (void*) next;
+
+            adjacent->push_back(cost);
+        }
+    }
+}
+
+void State::PrintStateInfo(void* state) {
+    const Location* loc = (const Location*) state;
+
+    cout << loc;
+}
 /*
     This is the output function for a state. It will add a char map
     representation of the state to the output stream passed to it.
@@ -264,4 +311,9 @@ istream& operator>>(istream &is, State &state)
     }
 
     return is;
-};
+}
+
+std::ostream& operator<<(std::ostream &os, const Location &loc) {
+    os << '(' << loc.col << ',' << loc.row << ')';
+    return os;
+}

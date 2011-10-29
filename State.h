@@ -15,6 +15,7 @@
 #include "Bug.h"
 #include "Square.h"
 #include "Location.h"
+#include "micropather.h"
 
 /*
     constants
@@ -26,7 +27,7 @@ const int DIRECTIONS[4][2] = { {-1, 0}, {0, 1}, {1, 0}, {0, -1} };      //{N, E,
 /*
     struct to store current state information
 */
-struct State
+struct State : public micropather::Graph
 {
     /*
         Variables
@@ -57,10 +58,16 @@ struct State
 
     void makeMove(const Location &loc, int direction);
 
-    double distance(const Location &loc1, const Location &loc2);
-    Location getLocation(const Location &startLoc, int direction);
+    unsigned long manhattanDistance(const Location &loc1, const Location &loc2) const;
+    double distance(const Location &loc1, const Location &loc2) const;
+    int getDirection(const Location &startLoc, const Location &endLoc) const;
+    Location getLocation(const Location &startLoc, int direction) const;
 
     void updateVisionInformation();
+
+    float LeastCostEstimate(void* stateStart, void* stateEnd);
+    void AdjacentCost(void* state, std::vector< micropather::StateCost > *adjacent);
+    void PrintStateInfo(void* state);
 };
 
 std::ostream& operator<<(std::ostream &os, const State &state);

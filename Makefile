@@ -1,12 +1,12 @@
 CC=g++
 CFLAGS=-O3 -funroll-loops -c
 LDFLAGS=-O2 -lm
-SOURCES=Bot.cc MyBot.cc State.cc
+SOURCES=Bot.cc MyBot.cc State.cc micropather.cc
 OBJECTS=$(SOURCES:.cc=.o)
 EXECUTABLE=MyBot
 
 #Uncomment the following to enable debugging
-#CFLAGS+=-g -DDEBUG
+CFLAGS+=-g -DDEBUG
 
 all: $(OBJECTS) $(EXECUTABLE)
 
@@ -21,4 +21,3 @@ clean:
 	-rm -f debug.txt
 
 .PHONY: all clean
-

@@ -18,6 +18,12 @@ struct Location
         row = r;
         col = c;
     };
+
+    bool operator==(const Location& other) const {
+        return row == other.row && col == other.col;
+    }
 };
+
+std::ostream& operator<<(std::ostream &os, const Location &loc);
 
 #endif //LOCATION_H_
