@@ -1,12 +1,18 @@
+#include <unistd.h>
 #include "Bot.h"
 
 using namespace std;
 
 //constructor
-Bot::Bot() {
-
+Bot::Bot()
+        : mCommands()
+{
+    agent.readWeights("weights.txt");
 }
-;
+
+Bot::~Bot() {
+    agent.writeWeights("weights.txt");
+}
 
 //plays a single game of Ants.
 void Bot::playGame() {
@@ -22,86 +28,67 @@ void Bot::playGame() {
         endTurn();
     }
 }
-;
+
+float Bot::checkReward(const Map& oldMap, const Map& map,
+        const Location& oldLoc, const Location& loc) const {
+    for (int d = 0; d < TDIRECTIONS; d++) {
+        const Location newLoc = oldMap.getLocation(loc, d);
+        if (oldMap.isFood(newLoc) && !map.isFood(newLoc)) {
+            cerr << "giving reward to " << loc << " for eating" << endl;
+            return 0.1f;
+        }
+    }
+
+    if (!map.isMyAnt(loc)) {
+        cerr << "giving penalty to " << loc << " for dying" << endl;
+
+        return -0.1f;
+    }
+
+    if (map.isOnlyDeadEnemyAnts(loc)) {
+        cerr << "giving reward to " << loc << " for killing" << endl;
+
+        return 0.1f;
+    }
+
+    if (oldMap.isEnemyHill(loc)) {
+        cerr << "giving reward to " << loc << " for razing" << endl;
+
+        return 0.1f;
+    }
+    return 0.0f;
+}
 
 //makes the bots moves for the turn
 void Bot::makeMoves() {
     state.bug << "turn " << state.turn << ":" << endl;
     state.bug << state << endl;
 
-    for (int food = 0; food < (int) state.food.size() && (int) state.myAnts.size() > 0; food++) {
-        const Location foodLoc = state.food[food];
+    const Locations myAnts = state.getMyAnts();
+    Commands::const_iterator cit;
+    for (cit = mCommands.begin(); cit != mCommands.end(); cit++) {
+        const Location oldLoc = (*cit).first;
+        const Location newLoc = (*cit).second;
 
-        vector<void*>* closestPath = NULL;
-        unsigned long closestDistance = 0UL;
-
-        for (int ant = 0; ant < (int) state.myAnts.size(); ant++) {
-            const Location antLoc = state.myAnts[ant];
-
-            const unsigned long antDistance = state.manhattanDistance(foodLoc, antLoc);
-            if (antDistance == 0) {
-                break;
-            }
-
-            if (closestPath == NULL || antDistance < closestDistance) {
-                micropather::MicroPather pather(&state);
-                std::vector<void*>* path = new vector<void*>();
-                float totalCost;
-
-                int result = pather.Solve(antLoc.toState(), foodLoc.toState(),
-                        path, &totalCost);
-                if (result != micropather::MicroPather::NO_SOLUTION) {
-                    closestDistance = totalCost;
-                    if (closestPath != NULL) {
-//                        delete closestPath;
-                    }
-                    closestPath = path;
-                } else {
-//                    delete path;
-                }
-            }
-
-        }
-
-        if (closestPath != NULL) {
-            const Location ant = Location(closestPath->at(0));
-            const Location next = Location(closestPath->at(1));
-
-            int direction = state.getDirection(ant, next);
-            if (direction != -1) {
-                state.makeMove(ant, state.getDirection(ant, next));
-                vector<Location>::iterator it = find(state.myAnts.begin(),
-                        state.myAnts.end(), ant);
-                state.myAnts.erase(it);
-            } else {
-                cerr << "wtf path from " << ant << " to " << foodLoc << ": ";
-                vector<void*>::iterator it = (*closestPath).begin();
-                while (it != (*closestPath).end()) {
-                    cerr << Location(*it) << ' ';
-                    it++;
-                }
-                cerr << endl;
-            }
-//                delete closestPath;
-        }
+        const float reward = checkReward(*state.getOldMap(), *state.getMap(),
+                oldLoc, newLoc);
+        agent.update(state, *state.getOldMap(), *state.getMap(), oldLoc, newLoc,
+                reward);
     }
 
-    //picks out moves for each ant
-    for (int ant = 0; ant < (int) state.myAnts.size(); ant++) {
-        for (int d = 0; d < TDIRECTIONS; d++) {
-            Location loc = state.getLocation(state.myAnts[ant], d);
+    mCommands.clear();
 
-            if (!state.grid[loc.row][loc.col].isWater && !state.grid[loc.row][loc.col].isHill) {
-                state.makeMove(state.myAnts[ant], d);
-                break;
-            }
-        }
+    Locations::const_iterator it;
+    for (it = myAnts.begin(); it != myAnts.end(); it++) {
+        const Location loc = *it;
+        const Location dest = agent.getAction(state, *state.getMap(), loc);
+        state.makeMove(loc, dest);
+        mCommands[loc] = dest;
     }
 
     state.bug << "time taken: " << state.timer.getTime() << "ms" << endl
             << endl;
 }
-;
 
 //finishes the turn
 void Bot::endTurn() {
@@ -110,5 +97,6 @@ void Bot::endTurn() {
     state.turn++;
 
     cout << "go" << endl;
+
+    agent.writeWeights("weights.txt");
 }
-;

@@ -4,312 +4,183 @@ using namespace std;
 
 //constructor
 State::State()
+        : mOldMap(NULL)
+        , mMap(NULL)
 {
     gameover = 0;
     turn = 0;
     bug.open("./debug.txt");
-};
+}
 
 //deconstructor
-State::~State()
-{
+State::~State() {
+    if (mOldMap != NULL) {
+        delete mOldMap;
+    }
+    if (mMap != NULL) {
+        delete mMap;
+    }
     bug.close();
-};
+}
 
 //sets the state up
-void State::setup()
-{
-    grid = vector<vector<Square> >(rows, vector<Square>(cols, Square()));
-};
+void State::setup() {
+}
 
 //resets all non-water squares to land and clears the bots ant vector
-void State::reset()
-{
-    myAnts.clear();
-    enemyAnts.clear();
-    myHills.clear();
-    enemyHills.clear();
-    food.clear();
-    for(int row=0; row<rows; row++)
-        for(int col=0; col<cols; col++)
-            if(!grid[row][col].isWater)
-                grid[row][col].reset();
-};
+void State::reset() {
+    if (mOldMap != NULL) {
+        delete mOldMap;
+    }
+
+    mOldMap = mMap;
+    mMap = new Map(mOldMap);
+}
 
 //outputs move information to the engine
-void State::makeMove(const Location &loc, int direction)
-{
-    cout << "o " << loc.row << " " << loc.col << " " << CDIRECTIONS[direction] << endl;
+void State::makeMove(const Location &loc, const Location& dest) {
+    const int direction = mMap->getDirection(loc, dest);
 
-    Location nLoc = getLocation(loc, direction);
-    grid[nLoc.row][nLoc.col].ant = grid[loc.row][loc.col].ant;
-    grid[loc.row][loc.col].ant = -1;
-};
+    cout << "o " << loc.row << " " << loc.col << " " << CDIRECTIONS[direction]
+            << endl;
 
-unsigned long State::manhattanDistance(const Location &loc1, const Location &loc2) const {
-    int d1 = abs(loc1.row-loc2.row),
-        d2 = abs(loc1.col-loc2.col),
-        dr = min(d1, rows-d1),
-        dc = min(d2, cols-d2);
-    return dr + dc;
+    mMap->moveAnt(loc, direction);
 }
 
-//returns the euclidean distance between two locations with the edges wrapped
-double State::distance(const Location &loc1, const Location &loc2) const
-{
-    int d1 = abs(loc1.row-loc2.row),
-        d2 = abs(loc1.col-loc2.col),
-        dr = min(d1, rows-d1),
-        dc = min(d2, cols-d2);
-    return sqrt(dr*dr + dc*dc);
-};
+Locations State::getLegalMoves(const Location& loc) const {
+    return mMap->getLegalMoves(loc);
+}
 
-//returns the new location from moving in a given direction with the edges wrapped
-Location State::getLocation(const Location &loc, int direction) const
-{
-    return Location( (loc.row + DIRECTIONS[direction][0] + rows) % rows,
-                     (loc.col + DIRECTIONS[direction][1] + cols) % cols );
-};
-
-int State::getDirection(const Location& start, const Location& end) const {
-    for (int direction = 0; direction < TDIRECTIONS; direction++) {
-        const int row = (start.row + DIRECTIONS[direction][0] + rows) % rows;
-        const int col = (start.col + DIRECTIONS[direction][1] + cols) % cols;
-        if (end.row == row && end.col == col) {
-            return direction;
-        }
-    }
-
-    cerr << "Invalid move from " << start << " to " << end << endl;
-    return -1;
+const Locations State::getMyAnts() const {
+    return mMap->getMyAnts();
 }
 
 /*
-    This function will update update the lastSeen value for any squares currently
-    visible by one of your live ants.
+ This function will update update the lastSeen value for any squares currently
+ visible by one of your live ants.
 
-    BE VERY CAREFUL IF YOU ARE GOING TO TRY AND MAKE THIS FUNCTION MORE EFFICIENT,
-    THE OBVIOUS WAY OF TRYING TO IMPROVE IT BREAKS USING THE EUCLIDEAN METRIC, FOR
-    A CORRECT MORE EFFICIENT IMPLEMENTATION, TAKE A LOOK AT THE GET_VISION FUNCTION
-    IN ANTS.PY ON THE CONTESTS GITHUB PAGE.
-*/
-void State::updateVisionInformation()
-{
-    std::queue<Location> locQueue;
-    Location sLoc, cLoc, nLoc;
-
-    for(int a=0; a<(int) myAnts.size(); a++)
-    {
-        sLoc = myAnts[a];
-        locQueue.push(sLoc);
-
-        std::vector<std::vector<bool> > visited(rows, std::vector<bool>(cols, 0));
-        grid[sLoc.row][sLoc.col].isVisible = 1;
-        visited[sLoc.row][sLoc.col] = 1;
-
-        while(!locQueue.empty())
-        {
-            cLoc = locQueue.front();
-            locQueue.pop();
-
-            for(int d=0; d<TDIRECTIONS; d++)
-            {
-                nLoc = getLocation(cLoc, d);
-
-                if(!visited[nLoc.row][nLoc.col] && distance(sLoc, nLoc) <= viewradius)
-                {
-                    grid[nLoc.row][nLoc.col].isVisible = 1;
-                    locQueue.push(nLoc);
-                }
-                visited[nLoc.row][nLoc.col] = 1;
-            }
-        }
-    }
+ BE VERY CAREFUL IF YOU ARE GOING TO TRY AND MAKE THIS FUNCTION MORE EFFICIENT,
+ THE OBVIOUS WAY OF TRYING TO IMPROVE IT BREAKS USING THE EUCLIDEAN METRIC, FOR
+ A CORRECT MORE EFFICIENT IMPLEMENTATION, TAKE A LOOK AT THE GET_VISION FUNCTION
+ IN ANTS.PY ON THE CONTESTS GITHUB PAGE.
+ */
+void State::updateVisionInformation() {
+    mMap->updateVisionInformation(*this);
 }
 
-float State::LeastCostEstimate(void* stateStart, void* stateEnd) {
-    const Location start = Location(stateStart);
-    const Location end = Location(stateEnd);
-
-    return manhattanDistance(start, end);
+const Map* State::getMap() const {
+    return mMap;
 }
 
-void State::AdjacentCost(void* state, std::vector< micropather::StateCost > *adjacent) {
-    const Location start = Location(state);
-
-    for(int d=0; d<TDIRECTIONS; d++)
-    {
-        const Location next = getLocation(start, d);
-
-        const Square nextSquare = grid[next.row][next.col];
-        if (!nextSquare.isWater && !nextSquare.isHill && nextSquare.ant == -1) {
-            micropather::StateCost cost;
-            cost.cost = 1;
-            cost.state = next.toState();
-
-            adjacent->push_back(cost);
-        }
-    }
+const Map* State::getOldMap() const {
+    return mOldMap;
 }
 
-void State::PrintStateInfo(void* state) {
-    const Location loc = Location(state);
-
-    cout << loc;
-}
 /*
-    This is the output function for a state. It will add a char map
-    representation of the state to the output stream passed to it.
+ This is the output function for a state. It will add a char map
+ representation of the state to the output stream passed to it.
 
-    For example, you might call "cout << state << endl;"
-*/
-ostream& operator<<(ostream &os, const State &state)
-{
-    for(int row=0; row<state.rows; row++)
-    {
-        for(int col=0; col<state.cols; col++)
-        {
-            if(state.grid[row][col].isWater)
-                os << '%';
-            else if(state.grid[row][col].isFood)
-                os << '*';
-            else if(state.grid[row][col].isHill)
-                os << (char)('A' + state.grid[row][col].hillPlayer);
-            else if(state.grid[row][col].ant >= 0)
-                os << (char)('a' + state.grid[row][col].ant);
-            else if(state.grid[row][col].isVisible)
-                os << '.';
-            else
-                os << '?';
-        }
-        os << endl;
-    }
+ For example, you might call "cout << state << endl;"
+ */
+ostream& operator<<(ostream &os, const State& state) {
+    os << *(state.mMap);
 
     return os;
-};
+}
+;
 
 //input function
-istream& operator>>(istream &is, State &state)
-{
+istream& operator>>(istream &is, State& state) {
     int row, col, player;
     string inputType, junk;
 
     //finds out which turn it is
-    while(is >> inputType)
-    {
-        if(inputType == "end")
-        {
+    while (is >> inputType) {
+        if (inputType == "end") {
             state.gameover = 1;
             break;
-        }
-        else if(inputType == "turn")
-        {
+        } else if (inputType == "turn") {
             is >> state.turn;
             break;
-        }
-        else //unknown line
+        } else
+            //unknown line
             getline(is, junk);
     }
 
-    if(state.turn == 0)
-    {
+    if (state.turn == 0) {
+        int rows, cols;
+
         //reads game parameters
-        while(is >> inputType)
-        {
-            if(inputType == "loadtime")
+        while (is >> inputType) {
+            if (inputType == "loadtime")
                 is >> state.loadtime;
-            else if(inputType == "turntime")
+            else if (inputType == "turntime")
                 is >> state.turntime;
-            else if(inputType == "rows")
-                is >> state.rows;
-            else if(inputType == "cols")
-                is >> state.cols;
-            else if(inputType == "turns")
+            else if (inputType == "rows")
+                is >> rows;
+            else if (inputType == "cols")
+                is >> cols;
+            else if (inputType == "turns")
                 is >> state.turns;
-            else if(inputType == "player_seed")
+            else if (inputType == "player_seed")
                 is >> state.seed;
-            else if(inputType == "viewradius2")
-            {
+            else if (inputType == "viewradius2") {
                 is >> state.viewradius;
                 state.viewradius = sqrt(state.viewradius);
-            }
-            else if(inputType == "attackradius2")
-            {
+            } else if (inputType == "attackradius2") {
                 is >> state.attackradius;
                 state.attackradius = sqrt(state.attackradius);
-            }
-            else if(inputType == "spawnradius2")
-            {
+            } else if (inputType == "spawnradius2") {
                 is >> state.spawnradius;
                 state.spawnradius = sqrt(state.spawnradius);
-            }
-            else if(inputType == "ready") //end of parameter input
-            {
+            } else if (inputType == "ready") //end of parameter input
+                    {
                 state.timer.start();
                 break;
-            }
-            else    //unknown line
+            } else
+                //unknown line
                 getline(is, junk);
         }
-    }
-    else
-    {
-        //reads information about the current turn
-        while(is >> inputType)
-        {
-            if(inputType == "w") //water square
-            {
-                is >> row >> col;
-                state.grid[row][col].isWater = 1;
-            }
-            else if(inputType == "f") //food square
-            {
-                is >> row >> col;
-                state.grid[row][col].isFood = 1;
-                state.food.push_back(Location(row, col));
-            }
-            else if(inputType == "a") //live ant square
-            {
-                is >> row >> col >> player;
-                state.grid[row][col].ant = player;
-                if(player == 0)
-                    state.myAnts.push_back(Location(row, col));
-                else
-                    state.enemyAnts.push_back(Location(row, col));
-            }
-            else if(inputType == "d") //dead ant square
-            {
-                is >> row >> col >> player;
-                state.grid[row][col].deadAnts.push_back(player);
-            }
-            else if(inputType == "h")
-            {
-                is >> row >> col >> player;
-                state.grid[row][col].isHill = 1;
-                state.grid[row][col].hillPlayer = player;
-                if(player == 0)
-                    state.myHills.push_back(Location(row, col));
-                else
-                    state.enemyHills.push_back(Location(row, col));
 
-            }
-            else if(inputType == "players") //player information
+        state.mMap = new Map(rows, cols);
+    } else {
+        //reads information about the current turn
+        while (is >> inputType) {
+            if (inputType == "w") //water square
+                    {
+                is >> row >> col;
+                state.mMap->addWater(row, col);
+            } else if (inputType == "f") //food square
+                    {
+                is >> row >> col;
+                state.mMap->addFood(row, col);
+            } else if (inputType == "a") //live ant square
+                    {
+                is >> row >> col >> player;
+                state.mMap->addAnt(row, col, player);
+            } else if (inputType == "d") //dead ant square
+                    {
+                is >> row >> col >> player;
+                state.mMap->addDeadAnt(row, col, player);
+            } else if (inputType == "h") {
+                is >> row >> col >> player;
+                state.mMap->addHill(row, col, player);
+            } else if (inputType == "players") //player information
                 is >> state.noPlayers;
-            else if(inputType == "scores") //score information
-            {
+            else if (inputType == "scores") //score information
+                    {
                 state.scores = vector<double>(state.noPlayers, 0.0);
-                for(int p=0; p<state.noPlayers; p++)
+                for (int p = 0; p < state.noPlayers; p++)
                     is >> state.scores[p];
-            }
-            else if(inputType == "go") //end of turn input
-            {
-                if(state.gameover)
+            } else if (inputType == "go") //end of turn input
+                    {
+                if (state.gameover)
                     is.setstate(std::ios::failbit);
                 else
                     state.timer.start();
                 break;
-            }
-            else //unknown line
+            } else
+                //unknown line
                 getline(is, junk);
         }
     }
@@ -320,4 +191,8 @@ istream& operator>>(istream &is, State &state)
 std::ostream& operator<<(std::ostream &os, const Location &loc) {
     os << '(' << loc.col << ',' << loc.row << ')';
     return os;
+}
+
+bool operator<(const Location& loc1, const Location& loc2) {
+    return loc1.row < loc2.row || loc1.col < loc2.col;
 }

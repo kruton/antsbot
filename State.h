@@ -9,31 +9,33 @@
 #include <vector>
 #include <queue>
 #include <stack>
+#include <map>
 #include <stdint.h>
 
 #include "Timer.h"
 #include "Bug.h"
 #include "Square.h"
 #include "Location.h"
-#include "micropather.h"
+#include "Feature.h"
+#include "Map.h"
 
 /*
     constants
 */
 const int TDIRECTIONS = 4;
 const char CDIRECTIONS[4] = {'N', 'E', 'S', 'W'};
+
 const int DIRECTIONS[4][2] = { {-1, 0}, {0, 1}, {1, 0}, {0, -1} };      //{N, E, S, W}
 
 /*
     struct to store current state information
 */
-struct State : public micropather::Graph
-{
+class State {
+public:
     /*
         Variables
     */
-    int rows, cols,
-        turn, turns,
+    int turn, turns,
         noPlayers;
     double attackradius, spawnradius, viewradius;
     double loadtime, turntime;
@@ -41,8 +43,8 @@ struct State : public micropather::Graph
     bool gameover;
     int64_t seed;
 
-    std::vector<std::vector<Square> > grid;
-    std::vector<Location> myAnts, enemyAnts, myHills, enemyHills, food;
+    Map* mOldMap;
+    Map* mMap;
 
     Timer timer;
     Bug bug;
@@ -56,21 +58,20 @@ struct State : public micropather::Graph
     void setup();
     void reset();
 
-    void makeMove(const Location &loc, int direction);
+    void makeMove(const Location& loc, const Location& dest);
 
-    unsigned long manhattanDistance(const Location &loc1, const Location &loc2) const;
-    double distance(const Location &loc1, const Location &loc2) const;
-    int getDirection(const Location &startLoc, const Location &endLoc) const;
-    Location getLocation(const Location &startLoc, int direction) const;
+    const Locations getMyAnts() const;
+
+    Locations getLegalMoves(const Location& loc) const;
 
     void updateVisionInformation();
 
-    float LeastCostEstimate(void* stateStart, void* stateEnd);
-    void AdjacentCost(void* state, std::vector< micropather::StateCost > *adjacent);
-    void PrintStateInfo(void* state);
+    const Map* getMap() const;
+
+    const Map* getOldMap() const;
 };
 
-std::ostream& operator<<(std::ostream &os, const State &state);
-std::istream& operator>>(std::istream &is, State &state);
+std::istream& operator>>(std::istream& is, State& state);
+std::ostream& operator<<(std::ostream& os, const State& state);
 
 #endif //STATE_H_
