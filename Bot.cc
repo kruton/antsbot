@@ -31,32 +31,40 @@ void Bot::playGame() {
 
 float Bot::checkReward(const Map& oldMap, const Map& map,
         const Location& oldLoc, const Location& loc) const {
+    float reward = 0.0f;
+
+    if (!oldMap.isExplored(loc)) {
+        cerr << "giving reward for exploring" << endl;
+        reward += 0.2f;
+    }
+
     for (int d = 0; d < TDIRECTIONS; d++) {
         const Location newLoc = oldMap.getLocation(loc, d);
         if (oldMap.isFood(newLoc) && !map.isFood(newLoc)) {
             cerr << "giving reward to " << loc << " for eating" << endl;
-            return 0.1f;
+            return reward + 10.0f;
         }
     }
 
     if (!map.isMyAnt(loc)) {
         cerr << "giving penalty to " << loc << " for dying" << endl;
 
-        return -0.1f;
+        return reward - 15.0f;
     }
 
     if (map.isOnlyDeadEnemyAnts(loc)) {
         cerr << "giving reward to " << loc << " for killing" << endl;
 
-        return 0.1f;
+        return reward + 10.0f;
     }
 
     if (oldMap.isEnemyHill(loc)) {
         cerr << "giving reward to " << loc << " for razing" << endl;
 
-        return 0.1f;
+        return reward + 100.0f;
     }
-    return 0.0f;
+
+    return reward;
 }
 
 //makes the bots moves for the turn
@@ -70,10 +78,12 @@ void Bot::makeMoves() {
         const Location oldLoc = (*cit).first;
         const Location newLoc = (*cit).second;
 
-        const float reward = checkReward(*state.getOldMap(), *state.getMap(),
-                oldLoc, newLoc);
-        agent.update(state, *state.getOldMap(), *state.getMap(), oldLoc, newLoc,
-                reward);
+        const Map& oldMap = *state.getOldMap();
+        const Map& map = *state.getMap();
+
+        const float reward = checkReward(oldMap, map, oldLoc, newLoc);
+
+        agent.update(state, oldMap, map, oldLoc, newLoc, reward);
     }
 
     mCommands.clear();
@@ -97,6 +107,4 @@ void Bot::endTurn() {
     state.turn++;
 
     cout << "go" << endl;
-
-    agent.writeWeights("weights.txt");
 }

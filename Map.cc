@@ -8,14 +8,19 @@
 #include <queue>
 #include <vector>
 #include <set>
+#include <iomanip>
 
 #include "State.h"
 #include "Map.h"
 
 using namespace std;
 
-Map::Map(int rows, int cols) :
-        mRows(rows), mCols(cols), mGrid(rows, GridRow(cols, Square())) {
+Map::Map(int rows, int cols)
+        : mRows(rows)
+        , mCols(cols)
+        , mGrid(rows, GridRow(cols, Square()))
+        , mSpacesExplored(0)
+{
     mMaxDistance = mRows + mCols;
 }
 
@@ -23,11 +28,18 @@ Map::Map(const Map* orig)
         : mRows(orig->mRows)
         , mCols(orig->mCols)
         , mMaxDistance(orig->mMaxDistance)
-        , mGrid(mRows, GridRow(mCols, Square())) {
+        , mGrid(mRows, GridRow(mCols, Square()))
+        , mSpacesExplored(orig->mSpacesExplored)
+{
     Locations::const_iterator it;
-    for (it = orig->mWater.begin(); it != orig->mWater.end(); it++) {
-        mWater.push_back(*it);
-        mGrid[(*it).row][(*it).col].isWater = true;
+    for (int r = 0; r < mRows; r++) {
+        for (int c = 0; c < mCols; c++) {
+            Square& ours = mGrid[r][c];
+            const Square& theirs = orig->mGrid[r][c];
+
+            ours.isWater = theirs.isWater;
+            ours.isExplored = theirs.isExplored;
+        }
     }
 }
 
@@ -104,13 +116,21 @@ void Map::addFood(int row, int col) {
 
 void Map::addWater(int row, int col) {
     mGrid[row][col].isWater = 1;
-    mWater.push_back(Location(row, col));
 }
 
 void Map::moveAnt(const Location& loc, int direction) {
     Location nLoc = getLocation(loc, direction);
-    mGrid[nLoc.row][nLoc.col].ant = mGrid[loc.row][loc.col].ant;
-    mGrid[loc.row][loc.col].ant = -1;
+
+    Square& newSq = mGrid[nLoc.row][nLoc.col];
+    Square& oldSq = mGrid[loc.row][loc.col];
+
+    newSq.ant = oldSq.ant;
+    if (newSq.isExplored == 0) {
+        newSq.isExplored = 1;
+        mSpacesExplored++;
+    }
+
+    oldSq.ant = -1;
 }
 
 bool Map::isEnemyHill(const Location& loc) const {
@@ -169,7 +189,7 @@ Features Map::extractFeatures(const State& state, const Location& pos) const {
         features[EnemyNear] = min(0.1f, (float) danger);
 
         if (enemyAntsInSight > antsNear) {
-            features[Outnumbered] = 0.1f;
+            features[Outnumbered] = 0.2f;
         }
     }
 
@@ -189,15 +209,20 @@ Features Map::extractFeatures(const State& state, const Location& pos) const {
         }
 
         if (foodNear) {
-            features[EatsFood] = 0.1f;
+            features[EatsFood] = 0.2f;
         }
 
         const float foodDistance = getClosestFoodDistance(pos);
         if (foodDistance > 0) {
-            features[DistanceToFood] = (float) foodDistance / (float) getMaxDistance();
+            features[DistanceToFood] = (float) (getMaxDistance() - foodDistance) / (float) getMaxDistance();
         }
-
     }
+
+    if (!isExplored(pos)) {
+        features[UnexploredSquare] = 0.1f;
+    }
+
+    features[Explored] = (float) mSpacesExplored / (float) (mRows * mCols);
 
     return features;
 }
@@ -274,6 +299,14 @@ uint32_t Map::countEnemyAntsInSight(const Location& loc, double range, double* c
     }
 
     return numAnts;
+}
+
+bool Map::isExplored(const Location& loc) const {
+    return mGrid[loc.row][loc.col].isExplored;
+}
+
+uint32_t Map::getSpacesExplored() const {
+    return mSpacesExplored;
 }
 
 uint32_t Map::manhattanDistance(const Location &loc1,

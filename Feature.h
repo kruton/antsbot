@@ -32,6 +32,12 @@ enum Feature {
 
 	/* Whether we're going to step onto a buddy */
 	FriendlyCollision = 8,
+
+	/* Whether the square is unexplored */
+	UnexploredSquare = 9,
+
+	/* Percentage of map explored */
+	Explored = 10,
 };
 
 typedef std::map<Feature, float> Features;

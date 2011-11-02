@@ -61,6 +61,10 @@ public:
     uint32_t countAntsNextTo(const Location& loc) const;
     uint32_t countEnemyAntsInSight(const Location& loc, double range, double* closest) const;
 
+    bool isExplored(const Location& loc) const;
+
+    uint32_t getSpacesExplored() const;
+
     uint32_t manhattanDistance(const Location &loc1,
             const Location &loc2) const;
     double distance(const Location &loc1, const Location &loc2) const;
@@ -79,6 +83,9 @@ private:
     /* Maximum possible distance between two points in the map */
     int32_t mMaxDistance;
 
+    /* Number of squares ants have seen. */
+    uint32_t mSpacesExplored;
+
     Grid mGrid;
 
     Locations mMyAnts;
@@ -90,8 +97,6 @@ private:
     Locations mEnemyHills;
 
     Locations mFood;
-
-    Locations mWater;
 };
 
 std::ostream& operator<<(std::ostream &os, const Map& map);

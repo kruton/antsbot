@@ -105,10 +105,10 @@ Location QAgent::getAction(const State& game, const Map& map, const Location& lo
     }
 
     Locations bestActions;
-    float bestQValue = -9999999.9f;
+    float bestQValue;
     for (it = possible.begin(); it != possible.end(); it++) {
         float qValue = getQValue(game, map, *it);
-        if (qValue > bestQValue) {
+        if (qValue > bestQValue || bestActions.empty()) {
             bestActions.clear();
             bestActions.push_back(*it);
             bestQValue = qValue;
