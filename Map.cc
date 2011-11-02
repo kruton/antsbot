@@ -161,12 +161,12 @@ Features Map::extractFeatures(const State& state, const Location& pos) const {
         features[HaveBackup] = (float) (antsNear > 4 ? 4.0f : (float) antsNear) / 16.0f;
     }
 
-    int32_t closest;
+    double closest;
     const uint32_t enemyAntsInSight = countEnemyAntsInSight(pos, state.viewradius, &closest);
-    float danger = 0.0f;
+    double danger = 0.0;
     if (enemyAntsInSight > 0) {
-        danger = (closest - state.attackradius) / state.viewradius;
-        features[EnemyNear] = max(1.0f, danger);
+        danger = (closest - state.attackradius) / (state.viewradius * 10.0);
+        features[EnemyNear] = min(0.1f, (float) danger);
 
         if (enemyAntsInSight > antsNear) {
             features[Outnumbered] = 0.1f;
@@ -174,7 +174,7 @@ Features Map::extractFeatures(const State& state, const Location& pos) const {
     }
 
     // Only think of food if we're not in immediate danger.
-    if (danger < 0.25f) {
+    if (danger < 0.25) {
         bool foodNear = false;
         if (isFood(pos)) {
             foodNear = true;
@@ -253,17 +253,17 @@ uint32_t Map::countAntsNextTo(const Location& loc) const {
     return numAnts;
 }
 
-uint32_t Map::countEnemyAntsInSight(const Location& loc, uint32_t range, int32_t* closest) const {
+uint32_t Map::countEnemyAntsInSight(const Location& loc, double range, double* closest) const {
     Locations::const_iterator it;
 
-    int32_t closestAnt = -1;
+    double closestAnt = 99999999.0;
     uint32_t numAnts = 0;
 
     for (it = mEnemyAnts.begin(); it != mEnemyAnts.end(); it++) {
-        int32_t distance = manhattanDistance(loc, *it);
-        if (distance <= range) {
-            if (closestAnt == -1 || distance < closestAnt) {
-                closestAnt = distance;
+        double d = distance(loc, *it);
+        if (d <= range) {
+            if (closestAnt == -1 || d < closestAnt) {
+                closestAnt = d;
             }
             numAnts++;
         }
@@ -278,15 +278,19 @@ uint32_t Map::countEnemyAntsInSight(const Location& loc, uint32_t range, int32_t
 
 uint32_t Map::manhattanDistance(const Location &loc1,
         const Location &loc2) const {
-    int d1 = abs(loc1.row - loc2.row), d2 = abs(loc1.col - loc2.col), dr = min(
-            d1, mRows - d1), dc = min(d2, mCols - d2);
+    int d1 = abs(loc1.row - loc2.row),
+        d2 = abs(loc1.col - loc2.col),
+        dr = min(d1, mRows - d1),
+        dc = min(d2, mCols - d2);
     return dr + dc;
 }
 
 //returns the euclidean distance between two locations with the edges wrapped
 double Map::distance(const Location &loc1, const Location &loc2) const {
-    int d1 = abs(loc1.row - loc2.row), d2 = abs(loc1.col - loc2.col), dr = min(
-            d1, mRows - d1), dc = min(d2, mCols - d2);
+    int d1 = abs(loc1.row - loc2.row),
+        d2 = abs(loc1.col - loc2.col),
+        dr = min(d1, mRows - d1),
+        dc = min(d2, mCols - d2);
     return sqrt(dr * dr + dc * dc);
 }
 ;

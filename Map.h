@@ -59,7 +59,7 @@ public:
 
     int32_t getClosestFoodDistance(const Location& loc) const;
     uint32_t countAntsNextTo(const Location& loc) const;
-    uint32_t countEnemyAntsInSight(const Location& loc, uint32_t range, int32_t* closest) const;
+    uint32_t countEnemyAntsInSight(const Location& loc, double range, double* closest) const;
 
     uint32_t manhattanDistance(const Location &loc1,
             const Location &loc2) const;
